@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -18,3 +20,9 @@ jobs:
         with:
           name: atak-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish APK as a release download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk ATAK-field.apk
+          gh release create "field-${{ github.run_number }}" ATAK-field.apk --title "ATAK field build ${{ github.run_number }}" --notes "Phone app (debug build)" --target atak-build
