@@ -34,8 +34,10 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:
 #world{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;will-change:transform}
 #world img{display:block;width:1920px;height:1080px;pointer-events:none}
 #grid{position:absolute;left:0;top:0;width:1920px;height:1080px;pointer-events:none}
-#grid line{stroke:rgba(255,255,255,.42);stroke-width:1.5}
-#grid text{font:700 26px var(--mono);fill:rgba(255,255,255,.82);paint-order:stroke;stroke:rgba(0,0,0,.75);stroke-width:5px}
+#grid line{stroke:rgba(255,255,255,.8);stroke-width:2}
+#grid text{font-family:var(--font);font-weight:900;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.8)}
+#grid text.hd{font-size:50px;stroke-width:8px}
+#grid text.cell{font-size:16px;stroke-width:4px;fill:rgba(255,255,255,.7)}
 #gridS{color:var(--fg)!important}
 #acc{position:absolute;left:0;top:0;border-radius:50%;background:rgba(25,211,255,.13);
   border:2px solid rgba(25,211,255,.6);pointer-events:none}
@@ -53,7 +55,7 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:
   justify-content:center;font-size:13px;line-height:1}
 #north i{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
   border-bottom:16px solid var(--red);margin-bottom:3px}
-#scale{left:8px;bottom:8px;padding:4px 8px 5px;font-size:12px}
+#scale{right:8px;bottom:8px;padding:4px 8px 5px;font-size:12px}
 #bar{height:6px;border:2px solid #fff;border-top:0;margin-top:2px}
 #testTag{right:8px;top:8px;padding:5px 9px;font-family:var(--font);font-size:13px;color:#fff;background:rgba(200,30,20,.88);border-color:#fff;z-index:5}
 #toast{position:absolute;left:50%;top:8px;transform:translateX(-50%);max-width:80%;z-index:7;
@@ -209,11 +211,13 @@ function toPx(lat,lon){
 function toLL(x,y){
   return {lat:ANCHOR.lat-(y-ANCHOR.y)*MPP/MLAT, lon:ANCHOR.lon+(x-ANCHOR.x)*MPP/MLON};
 }
-/* 격자: 한 칸 50m. 칸 이름은 "가로칸-세로칸" (왼쪽 위가 1-1) */
-var GRID_M=50,GP=GRID_M/MPP;
+/* 격자: 작전용 그리드 지도와 같은 칸 (가로 A~K, 세로 1~8). 값은 그 지도를 이 지도에 겹쳐서 잰 것 */
+var GX0=410.2,GDX=124.22,GY0=136.9,GDY=84.3,GCOLS="ABCDEFGHIJK",GROWS=8;
+var VB={x:286.7,y:53.5,w:1489.2,h:757.8};     // 그리드 지도가 보여 주는 범위
 function gridOf(p){
-  if(p.x<0||p.y<0||p.x>=W||p.y>=H)return "–";
-  return (Math.floor(p.x/GP)+1)+"-"+(Math.floor(p.y/GP)+1);
+  var c=Math.floor((p.x-GX0)/GDX),r=Math.floor((p.y-GY0)/GDY);
+  if(c<0||c>=GCOLS.length||r<0||r>=GROWS)return "–";
+  return GCOLS[c]+(r+1);
 }
 function inField(p){
   var c=false;
@@ -241,12 +245,12 @@ function pad2(n){return (n<10?"0":"")+n}
 /* ---------- 화면 배치 ---------- */
 var view={k:1,tx:0,ty:0};
 function layout(glide){
-  var sw=stage.clientWidth,sh=stage.clientHeight,fit=Math.min(sw/W,sh/H),k,tx,ty;
+  var sw=stage.clientWidth,sh=stage.clientHeight,fit=Math.min(sw/VB.w,sh/VB.h),k,tx,ty;
   if(follow&&pos){
     k=fit*ZL[zl];
     tx=Math.min(0,Math.max(sw-W*k,sw/2-pos.x*k));
     ty=Math.min(0,Math.max(sh-H*k,sh/2-pos.y*k));
-  }else{k=fit;tx=(sw-W*k)/2;ty=(sh-H*k)/2}
+  }else{k=fit;tx=(sw-VB.w*k)/2-VB.x*k;ty=(sh-VB.h*k)/2-VB.y*k}
   view={k:k,tx:tx,ty:ty};
   world.classList.toggle("glide",!!glide);
   me.classList.toggle("glide",!!glide);acc.classList.toggle("glide",!!glide);
@@ -416,10 +420,12 @@ $("bCoord").addEventListener("click",function(){
   drawCoordSetting();
 });
 (function(){
-  var s="",nx=Math.ceil(W/GP),ny=Math.ceil(H/GP),i,j;
-  for(i=1;i<nx;i++)s+='<line x1="'+(i*GP)+'" y1="0" x2="'+(i*GP)+'" y2="'+H+'"/>';
-  for(j=1;j<ny;j++)s+='<line x1="0" y1="'+(j*GP)+'" x2="'+W+'" y2="'+(j*GP)+'"/>';
-  for(i=0;i<nx;i++)for(j=0;j<ny;j++)s+='<text x="'+(i*GP+7)+'" y="'+(j*GP+28)+'">'+(i+1)+'-'+(j+1)+'</text>';
+  var s="",i,j,nc=GCOLS.length,x1=GX0+nc*GDX,y1=GY0+GROWS*GDY;
+  for(i=0;i<=nc;i++)s+='<line x1="'+(GX0+i*GDX)+'" y1="'+VB.y+'" x2="'+(GX0+i*GDX)+'" y2="'+y1+'"/>';
+  for(j=0;j<=GROWS;j++)s+='<line x1="'+VB.x+'" y1="'+(GY0+j*GDY)+'" x2="'+x1+'" y2="'+(GY0+j*GDY)+'"/>';
+  for(i=0;i<nc;i++)s+='<text class="hd" text-anchor="middle" x="'+(GX0+(i+.5)*GDX)+'" y="'+(GY0-24)+'">'+GCOLS[i]+'</text>';
+  for(j=0;j<GROWS;j++)s+='<text class="hd" text-anchor="middle" x="'+(GX0-GDX/2)+'" y="'+(GY0+(j+.5)*GDY+17)+'">'+(j+1)+'</text>';
+  for(i=0;i<nc;i++)for(j=0;j<GROWS;j++)s+='<text class="cell" x="'+(GX0+i*GDX+5)+'" y="'+(GY0+j*GDY+19)+'">'+GCOLS[i]+(j+1)+'</text>';
   $("grid").innerHTML=s;
 })();
 var showGrid=true;
